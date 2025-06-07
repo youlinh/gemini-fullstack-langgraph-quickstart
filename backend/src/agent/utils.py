@@ -21,10 +21,13 @@ def get_research_topic(messages: List[AnyMessage]) -> str:
 
 def resolve_urls(urls_to_resolve: List[Any], id: int) -> Dict[str, str]:
     """
-    Create a map of the vertex ai search urls (very long) to a short url with a unique id for each url.
+    NOTE: This function was originally designed for URLs from a specific search provider (Vertex AI Search / Google).
+    It is not currently used by the agent since web research functionality was simplified.
+    Create a map of long URLs to a shorter, identified URL.
     Ensures each original URL gets a consistent shortened form while maintaining uniqueness.
     """
-    prefix = f"https://vertexaisearch.cloud.google.com/id/"
+    # prefix = f"https://vertexaisearch.cloud.google.com/id/" # Original prefix
+    prefix = f"https://example-short-url.com/id/" # Generic placeholder prefix
     urls = [site.web.uri for site in urls_to_resolve]
 
     # Create a dictionary that maps each unique URL to its first occurrence index
@@ -77,18 +80,20 @@ def insert_citation_markers(text, citations_list):
 
 def get_citations(response, resolved_urls_map):
     """
-    Extracts and formats citation information from a Gemini model's response.
+    NOTE: This function was originally designed to extract citation information
+    from a specific LLM's response (Gemini) when used with a particular search tool (Google Search API).
+    It is not currently used by the agent since web research functionality was simplified.
 
-    This function processes the grounding metadata provided in the response to
-    construct a list of citation objects. Each citation object includes the
-    start and end indices of the text segment it refers to, and a string
-    containing formatted markdown links to the supporting web chunks.
+    Extracts and formats citation information from an LLM's response that includes grounding metadata.
+
+    This function processes grounding metadata to construct a list of citation objects.
+    Each citation object includes start/end indices of the text segment and formatted markdown links.
 
     Args:
-        response: The response object from the Gemini model, expected to have
-                  a structure including `candidates[0].grounding_metadata`.
-                  It also relies on a `resolved_map` being available in its
-                  scope to map chunk URIs to resolved URLs.
+        response: The response object from an LLM, expected to have a structure
+                  including grounding metadata (e.g., `candidates[0].grounding_metadata`).
+                  It also relies on a `resolved_urls_map` (from `resolve_urls` or similar)
+                  to map chunk URIs to resolved URLs.
 
     Returns:
         list: A list of dictionaries, where each dictionary represents a citation

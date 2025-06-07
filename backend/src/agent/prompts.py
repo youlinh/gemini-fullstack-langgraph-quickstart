@@ -7,6 +7,8 @@ def get_current_date():
 
 
 query_writer_instructions = """Your goal is to generate sophisticated and diverse web search queries. These queries are intended for an advanced automated web research tool capable of analyzing complex results, following links, and synthesizing information.
+# TODO (Prompt Engineering): The phrase "sophisticated and diverse" and the description of the "advanced automated web research tool"
+# might set expectations for the LLM's output. Performance with DeepSeek should be monitored.
 
 Instructions:
 - Always prefer a single search query, only add another query if the original question requests multiple aspects or elements and one query is not enough.
@@ -34,7 +36,11 @@ Topic: What revenue grew more last year apple stock or the number of people buyi
 Context: {research_topic}"""
 
 
+# TODO: This prompt is for the web searcher. The actual web search functionality is currently disabled in graph.py and needs reimplementation for DeepSeek.
 web_searcher_instructions = """Conduct targeted Google Searches to gather the most recent, credible information on "{research_topic}" and synthesize it into a verifiable text artifact.
+# TODO (Prompt Engineering): "Conduct targeted Google Searches" is specific. This whole prompt needs a major rewrite
+# if a different search mechanism (or no direct search by LLM) is used with DeepSeek.
+# The instruction to "synthesize it into a verifiable text artifact" might also need review based on DeepSeek's capabilities.
 
 Instructions:
 - Query should ensure that the most current information is gathered. The current date is {current_date}.
@@ -74,6 +80,8 @@ Example:
 ```
 
 Reflect carefully on the Summaries to identify knowledge gaps and produce a follow-up query. Then, produce your output following this JSON format:
+# TODO (Prompt Engineering): The instruction "Reflect carefully" is subjective. The overall effectiveness of this reflection process
+# with DeepSeek, especially its ability to identify nuanced knowledge gaps, should be evaluated.
 
 Summaries:
 {summaries}
@@ -88,6 +96,9 @@ Instructions:
 - You have access to the user's question.
 - Generate a high-quality answer to the user's question based on the provided summaries and the user's question.
 - you MUST include all the citations from the summaries in the answer correctly.
+# TODO (Prompt Engineering): The emphasis "MUST include all the citations... correctly" is important.
+# How DeepSeek handles strict instructions for citation inclusion from potentially complex/messy summary inputs needs testing.
+# The definition of "correctly" might also vary if the input source format changes.
 
 User Context:
 - {research_topic}
