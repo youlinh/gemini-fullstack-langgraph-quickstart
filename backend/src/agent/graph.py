@@ -118,18 +118,18 @@ def web_research(state: WebSearchState, config: RunnableConfig) -> OverallState:
     )
 
     # Uses the google genai client (genai_search_client) for the search tool
-    # TODO: Confirm the correct Google model name for tool usage. Using gemini-1.5-flash-latest as a placeholder.
-    # The prompt (formatted_prompt) is prepared based on DeepSeek's logic if web_searcher_instructions are generic enough.
-    # However, the model executing the search tool itself must be a Google model.
-    search_tool_executor_model = "gemini-1.5-flash-latest"
+    # Get a generative model instance from the Google search client
+    # Using "gemini-1.5-flash-latest" as it's suitable for tool usage.
+    # The actual content of the search query is in `formatted_prompt` or the tool definition.
+    # TODO: Confirm "gemini-1.5-flash-latest" is the most appropriate and available model for this client and tool.
+    google_search_model = genai_search_client.get_model("models/gemini-1.5-flash-latest") # Ensure "models/" prefix if required by get_model
 
-    response = genai_search_client.generate_content( # Corrected method name from .models.generate_content
-        model=f"models/{search_tool_executor_model}",
-        contents=formatted_prompt,
-        generation_config={
-            "tool_config": { "google_search_retrieval": { "disable_attribution": False } }
-        },
-        tools=[{"google_search_retrieval": {}}],
+    # Uses the google genai client's model to generate content (and trigger tools)
+    response = google_search_model.generate_content(
+        contents=formatted_prompt, # This prompt might make the LLM use the tool
+        generation_config={"response_mime_type": "text/plain"}, # Ensure this is appropriate
+        tools=[{"google_search": {"query": state["search_query"]}}], # Corrected tool name & providing query directly
+        # Consider if other parameters like temperature are needed here for the tool-calling model
     )
 
     # IMPORTANT: The following extraction and utility function calls (resolve_urls, get_citations, insert_citation_markers)
