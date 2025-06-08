@@ -7,7 +7,7 @@ from langgraph.types import Send
 from langgraph.graph import StateGraph
 from langgraph.graph import START, END
 from langchain_core.runnables import RunnableConfig
-from google.genai import Client # Restoring Google Search client
+import google.generativeai as genai # Updated import for google-generativeai
 from langchain_deepseek import ChatDeepSeek
 
 from agent.state import (
@@ -40,9 +40,7 @@ if os.getenv("DEEPSEEK_API_KEY") is None:
 if os.getenv("GOOGLE_SEARCH_API_KEY") is None: # Restoring Google Search API key check
     raise ValueError("GOOGLE_SEARCH_API_KEY is not set")
 
-# Used for Google Search API
-genai_search_client = Client(api_key=os.getenv("GOOGLE_SEARCH_API_KEY")) # Restoring Google Search client
-
+genai.configure(api_key=os.getenv("GOOGLE_SEARCH_API_KEY")) # Configure API key using new method
 
 # Nodes
 def generate_query(state: OverallState, config: RunnableConfig) -> QueryGenerationState:
@@ -122,7 +120,7 @@ def web_research(state: WebSearchState, config: RunnableConfig) -> OverallState:
     # Using "gemini-1.5-flash-latest" as it's suitable for tool usage.
     # The actual content of the search query is in `formatted_prompt` or the tool definition.
     # TODO: Confirm "gemini-1.5-flash-latest" is the most appropriate and available model for this client and tool.
-    google_search_model = genai_search_client.get_model("models/gemini-1.5-flash-latest") # Ensure "models/" prefix if required by get_model
+    google_search_model = genai.GenerativeModel("models/gemini-1.5-flash-latest")
 
     # Uses the google genai client's model to generate content (and trigger tools)
     response = google_search_model.generate_content(
