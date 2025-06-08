@@ -21,14 +21,20 @@ def get_research_topic(messages: List[AnyMessage]) -> str:
 
 def resolve_urls(urls_to_resolve: List[Any], id: int) -> Dict[str, str]:
     """
-    NOTE: This function was originally designed for URLs from a specific search provider (Vertex AI Search / Google).
-    It is not currently used by the agent since web research functionality was simplified.
-    Create a map of long URLs to a shorter, identified URL.
-    Ensures each original URL gets a consistent shortened form while maintaining uniqueness.
+    Creates a map of long URLs from Google Search results (via google.genai.Client)
+    to a shorter, identified URL. Ensures each original URL gets a consistent
+    shortened form while maintaining uniqueness.
+
+    The input `urls_to_resolve` is expected to be a list of objects/dictionaries,
+    each having a `web.uri` attribute (e.g., from web_search_results in grounding metadata).
+    # TODO: Verify the exact structure of `urls_to_resolve` (previously `grounding_chunks`)
+    # from the current Google API response when using `google_search_retrieval` tool.
     """
-    # prefix = f"https://vertexaisearch.cloud.google.com/id/" # Original prefix
-    prefix = f"https://example-short-url.com/id/" # Generic placeholder prefix
-    urls = [site.web.uri for site in urls_to_resolve]
+    prefix = f"https://vertexaisearch.cloud.google.com/id/" # Google-specific prefix
+    # Assuming `site` objects in `urls_to_resolve` have `web.uri` or similar path to the URL.
+    # This line might need adjustment based on the actual structure of `urls_to_resolve`.
+    urls = [site.get("uri") if isinstance(site, dict) else getattr(getattr(site, "web", object()), "uri", None) for site in urls_to_resolve]
+    urls = [url for url in urls if url] # Filter out None values
 
     # Create a dictionary that maps each unique URL to its first occurrence index
     resolved_map = {}
@@ -41,13 +47,15 @@ def resolve_urls(urls_to_resolve: List[Any], id: int) -> Dict[str, str]:
 
 def insert_citation_markers(text, citations_list):
     """
-    Inserts citation markers into a text string based on start and end indices.
+    Inserts citation markers into a text string based on start and end indices
+    derived from Google Search results.
+    # TODO: This function's logic depends on get_citations. Review if get_citations output format changes.
 
     Args:
         text (str): The original text string.
-        citations_list (list): A list of dictionaries, where each dictionary
-                               contains 'start_index', 'end_index', and
-                               'segment_string' (the marker to insert).
+        citations_list (list): A list of citation dictionaries from `get_citations`.
+                               Each dictionary should contain 'start_index', 'end_index',
+                               and 'segments' (which provide marker info).
                                Indices are assumed to be for the original text.
 
     Returns:
@@ -80,20 +88,20 @@ def insert_citation_markers(text, citations_list):
 
 def get_citations(response, resolved_urls_map):
     """
-    NOTE: This function was originally designed to extract citation information
-    from a specific LLM's response (Gemini) when used with a particular search tool (Google Search API).
-    It is not currently used by the agent since web research functionality was simplified.
+    Extracts and formats citation information from a Google Search API response
+    (via google.genai.Client, specifically using `google_search_retrieval` tool).
 
-    Extracts and formats citation information from an LLM's response that includes grounding metadata.
-
-    This function processes grounding metadata to construct a list of citation objects.
+    This function processes grounding metadata from the response to construct a list of citation objects.
     Each citation object includes start/end indices of the text segment and formatted markdown links.
+    # TODO: Verify path to grounding_supports/grounding_chunks and their structure
+    # (e.g., `web.uri`, `web.title`, segment start/end indices) from the current Google API response
+    # when using `google_search_retrieval`. The structure below is based on an older SDK version or assumptions.
 
     Args:
-        response: The response object from an LLM, expected to have a structure
-                  including grounding metadata (e.g., `candidates[0].grounding_metadata`).
-                  It also relies on a `resolved_urls_map` (from `resolve_urls` or similar)
-                  to map chunk URIs to resolved URLs.
+        response: The response object from `genai_search_client.generate_content()`,
+                  expected to have grounding metadata (e.g., `response.candidates[0].content.parts[0].grounding_metadata`).
+                  It also relies on `resolved_urls_map` (from `resolve_urls`)
+                  to map chunk URIs to shorter, resolved URLs.
 
     Returns:
         list: A list of dictionaries, where each dictionary represents a citation
@@ -113,59 +121,59 @@ def get_citations(response, resolved_urls_map):
     citations = []
 
     # Ensure response and necessary nested structures are present
-    if not response or not response.candidates:
+    if not response or not response.candidates or not response.candidates[0].content or not response.candidates[0].content.parts:
         return citations
 
-    candidate = response.candidates[0]
-    if (
-        not hasattr(candidate, "grounding_metadata")
-        or not candidate.grounding_metadata
-        or not hasattr(candidate.grounding_metadata, "grounding_supports")
-    ):
+    response_part = response.candidates[0].content.parts[0]
+    if not hasattr(response_part, "grounding_metadata") or not response_part.grounding_metadata:
         return citations
 
-    for support in candidate.grounding_metadata.grounding_supports:
+    # The following access to `grounding_supports` and `grounding_chunks` is based on an older structure.
+    # This needs to be verified against the `web_search_results` or similar in the current API.
+    # For instance, `web_search_results` is a list of search results, each might have its own title, URI, and snippets.
+    # The concept of 'grounding_supports' tied to specific text segments in the LLM *response*
+    # might be different when using `google_search_retrieval` if it primarily returns search snippets
+    # rather than a modified LLM response with inline citations.
+
+    # Placeholder: If grounding_supports is still the relevant field
+    grounding_supports = response_part.grounding_metadata.grounding_supports if hasattr(response_part.grounding_metadata, "grounding_supports") else []
+    grounding_chunks = response_part.grounding_metadata.grounding_chunks if hasattr(response_part.grounding_metadata, "grounding_chunks") else []
+
+
+    for support in grounding_supports: # This loop structure might be entirely wrong for google_search_retrieval
         citation = {}
 
-        # Ensure segment information is present
         if not hasattr(support, "segment") or support.segment is None:
-            continue  # Skip this support if segment info is missing
+            continue
 
-        start_index = (
-            support.segment.start_index
-            if support.segment.start_index is not None
-            else 0
-        )
-
-        # Ensure end_index is present to form a valid segment
+        start_index = support.segment.start_index if support.segment.start_index is not None else 0
         if support.segment.end_index is None:
-            continue  # Skip if end_index is missing, as it's crucial
+            continue
 
-        # Add 1 to end_index to make it an exclusive end for slicing/range purposes
-        # (assuming the API provides an inclusive end_index)
         citation["start_index"] = start_index
         citation["end_index"] = support.segment.end_index
 
         citation["segments"] = []
-        if (
-            hasattr(support, "grounding_chunk_indices")
-            and support.grounding_chunk_indices
-        ):
+        if hasattr(support, "grounding_chunk_indices") and support.grounding_chunk_indices:
             for ind in support.grounding_chunk_indices:
                 try:
-                    chunk = candidate.grounding_metadata.grounding_chunks[ind]
-                    resolved_url = resolved_urls_map.get(chunk.web.uri, None)
-                    citation["segments"].append(
-                        {
-                            "label": chunk.web.title.split(".")[:-1][0],
-                            "short_url": resolved_url,
-                            "value": chunk.web.uri,
-                        }
-                    )
-                except (IndexError, AttributeError, NameError):
-                    # Handle cases where chunk, web, uri, or resolved_map might be problematic
-                    # For simplicity, we'll just skip adding this particular segment link
-                    # In a production system, you might want to log this.
-                    pass
-        citations.append(citation)
+                    # This assumes `grounding_chunks` is a flat list accessible by index,
+                    # and that each chunk has `.web.uri` and `.web.title`.
+                    if ind < len(grounding_chunks):
+                        chunk = grounding_chunks[ind]
+                        resolved_url = resolved_urls_map.get(getattr(getattr(chunk, "web", object()), "uri", None), None)
+                        title = getattr(getattr(chunk, "web", object()), "title", "")
+                        label = title.split(".")[0] if title else "Source" # Simplified label
+                        if resolved_url:
+                            citation["segments"].append(
+                                {
+                                    "label": label,
+                                    "short_url": resolved_url,
+                                    "value": getattr(getattr(chunk, "web", object()), "uri", None),
+                                }
+                            )
+                except (AttributeError, NameError): # Removed IndexError as we check length
+                    pass # Skip problematic chunks
+        if citation["segments"]: # Only add citation if it has valid segments
+            citations.append(citation)
     return citations

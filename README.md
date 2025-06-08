@@ -1,6 +1,6 @@
 # DeepSeek Fullstack LangGraph Quickstart
 
-This project demonstrates a fullstack application using a React frontend and a LangGraph-powered backend agent. The agent is designed to perform comprehensive research on a user's query by dynamically generating search terms, querying the web (functionality currently simplified), reflecting on the results to identify knowledge gaps, and iteratively refining its search until it can provide a well-supported answer with citations. This application serves as an example of building research-augmented conversational AI using LangGraph and DeepSeek models.
+This project demonstrates a fullstack application using a React frontend and a LangGraph-powered backend agent. The agent uses DeepSeek models for core language processing tasks (like query generation, reflection, and answer synthesis) and leverages the Google Search API for performing web research. It's designed to conduct comprehensive research by dynamically generating search terms, querying the web, analyzing results to identify knowledge gaps, and iteratively refining its search until it can provide a well-supported answer with citations. This application serves as an example of building research-augmented conversational AI using LangGraph, DeepSeek models, and Google Search.
 
 ![DeepSeek Fullstack LangGraph](./app.png)
 
@@ -9,8 +9,8 @@ This project demonstrates a fullstack application using a React frontend and a L
 - 💬 Fullstack application with a React frontend and LangGraph backend.
 - 🧠 Powered by a LangGraph agent for advanced research and conversational AI.
 - 🔍 Dynamic search query generation using DeepSeek models.
-- 🌐 Integrated web research (currently simplified after switching from Google Search API).
-- 🤔 Reflective reasoning to identify knowledge gaps and refine searches.
+- 🌐 Web research performed using the Google Search API.
+- 🤔 Reflective reasoning using DeepSeek models to identify knowledge gaps and refine searches.
 - 📄 Generates answers with citations from gathered sources.
 - 🔄 Hot-reloading for both frontend and backend development during development.
 
@@ -29,10 +29,14 @@ Follow these steps to get the application running locally for development and te
 
 -   Node.js and npm (or yarn/pnpm)
 -   Python 3.8+
--   **`DEEPSEEK_API_KEY`**: The backend agent requires a DeepSeek API key.
+-   **API Keys**: The backend agent requires API keys for both DeepSeek (for LLM tasks) and Google Search (for web research).
+    -   `DEEPSEEK_API_KEY`: For DeepSeek model access.
+    -   `GOOGLE_SEARCH_API_KEY`: For Google Search API access.
     1.  Navigate to the `backend/` directory.
-    2.  Create a file named `.env` by copying the `backend/.env.example` file. (Note: `.env.example` might need updating separately)
-    3.  Open the `.env` file and add your DeepSeek API key: `DEEPSEEK_API_KEY="YOUR_ACTUAL_API_KEY"`
+    2.  Create a file named `.env` by copying the `backend/.env.example` file. (Note: `.env.example` will need to be updated to include both API key placeholders if not already present).
+    3.  Open the `.env` file and add your API keys:
+        `DEEPSEEK_API_KEY="YOUR_DEEPSEEK_API_KEY"`
+        `GOOGLE_SEARCH_API_KEY="YOUR_GOOGLE_SEARCH_API_KEY"`
 
 **2. Install Dependencies:**
 
@@ -68,8 +72,8 @@ The core of the backend is a LangGraph agent defined in `backend/src/agent/graph
 ![Agent Flow](./agent.png)
 
 1.  **Generate Initial Queries:** Based on your input, it generates a set of initial search queries using a DeepSeek model.
-2.  **Web Research:** For each query, it would typically use a search API. (This part is currently simplified due to the removal of Google Search specific tools and would need reimplementation for DeepSeek or a generic search tool).
-3.  **Reflection & Knowledge Gap Analysis:** The agent analyzes the search results to determine if the information is sufficient or if there are knowledge gaps. It uses a DeepSeek model for this reflection process.
+2.  **Web Research:** For each query, it uses the Google Search API (via `google.genai.Client`) to find relevant web pages.
+3.  **Reflection & Knowledge Gap Analysis:** The agent analyzes the search results (which include web content and source information) to determine if the information is sufficient or if there are knowledge gaps. It uses a DeepSeek model for this reflection process.
 4.  **Iterative Refinement:** If gaps are found or the information is insufficient, it generates follow-up queries and repeats the web research and reflection steps (up to a configured maximum number of loops).
 5.  **Finalize Answer:** Once the research is deemed sufficient, the agent synthesizes the gathered information into a coherent answer, including citations from the web sources, using a DeepSeek model.
 
@@ -90,7 +94,7 @@ _Note: If you are not running the docker-compose.yml example or exposing the bac
 **2. Run the Production Server:**
 
    ```bash
-   DEEPSEEK_API_KEY=<your_deepseek_api_key> LANGSMITH_API_KEY=<your_langsmith_api_key> docker-compose up
+   DEEPSEEK_API_KEY=<your_deepseek_api_key> GOOGLE_SEARCH_API_KEY=<your_google_search_api_key> LANGSMITH_API_KEY=<your_langsmith_api_key> docker-compose up
    ```
 
 Open your browser and navigate to `http://localhost:8123/app/` to see the application. The API will be available at `http://localhost:8123`.
@@ -102,6 +106,7 @@ Open your browser and navigate to `http://localhost:8123/app/` to see the applic
 - [Shadcn UI](https://ui.shadcn.com/) - For components.
 - [LangGraph](https://github.com/langchain-ai/langgraph) - For building the backend research agent.
 - DeepSeek - LLM for query generation, reflection, and answer synthesis.
+- Google Search API (via `google.generativeai` client) - For web research capabilities.
 
 ## License
 

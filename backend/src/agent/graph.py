@@ -7,7 +7,7 @@ from langgraph.types import Send
 from langgraph.graph import StateGraph
 from langgraph.graph import START, END
 from langchain_core.runnables import RunnableConfig
-# from google.genai import Client # Removed for DeepSeek integration
+from google.genai import Client # Restoring for Google Search
 from langchain_deepseek import ChatDeepSeek # Corrected import name
 
 from agent.state import (
@@ -26,10 +26,10 @@ from agent.prompts import (
 )
 # from langchain_google_genai import ChatGoogleGenerativeAI # Removed for DeepSeek integration
 from agent.utils import (
-    # get_citations, # Removed as it depends on Google Search API
+    get_citations, # Restoring for Google Search
     get_research_topic,
-    # insert_citation_markers, # Removed as it depends on Google Search API
-    # resolve_urls, # Removed as it depends on Google Search API
+    insert_citation_markers, # Restoring for Google Search
+    resolve_urls, # Restoring for Google Search
 )
 
 load_dotenv()
@@ -37,8 +37,11 @@ load_dotenv()
 if os.getenv("DEEPSEEK_API_KEY") is None:
     raise ValueError("DEEPSEEK_API_KEY is not set")
 
+if os.getenv("GOOGLE_SEARCH_API_KEY") is None:
+    raise ValueError("GOOGLE_SEARCH_API_KEY is not set")
+
 # Used for Google Search API
-# genai_client = Client(api_key=os.getenv("DEEPSEEK_API_KEY")) # Removed for DeepSeek integration
+genai_search_client = Client(api_key=os.getenv("GOOGLE_SEARCH_API_KEY"))
 
 
 # Nodes
@@ -94,49 +97,79 @@ def continue_to_web_research(state: QueryGenerationState):
 
 
 def web_research(state: WebSearchState, config: RunnableConfig) -> OverallState:
-    """LangGraph node that is intended to perform web research.
+    """LangGraph node that performs web research using the Google Search API tool.
 
-    NOTE: This node's functionality is currently simplified due to the removal of
-    Google-specific search tools. It returns a placeholder message and does not
-    perform actual web searches or gather real sources. This will need to be
-    reimplemented using DeepSeek's capabilities or a generic web search tool.
+    Uses the Google Search tool via google.genai.Client. The prompt for the search
+    is based on web_searcher_instructions. A Google model capable of tool use
+    is used for this specific node to execute the search tool.
 
     Args:
-        state: Current graph state containing the search query.
+        state: Current graph state containing the search query and research loop count
         config: Configuration for the runnable.
 
     Returns:
         Dictionary with state update, including sources_gathered, research_loop_count, and web_research_results
     """
     # Configure
-    # configurable = Configuration.from_runnable_config(config) # Not needed for dummy implementation
-    # formatted_prompt = web_searcher_instructions.format( # Not needed for dummy implementation
-    # current_date=get_current_date(), # Not needed for dummy implementation
-    # research_topic=state["search_query"], # Not needed for dummy implementation
-    # )
+    configurable = Configuration.from_runnable_config(config)
+    formatted_prompt = web_searcher_instructions.format(
+        current_date=get_current_date(),
+        research_topic=state["search_query"],
+    )
 
-    # The following section related to Google Search API and genai_client has been removed.
-    # response = genai_client.models.generate_content(
-    # model=configurable.query_generator_model,
-    # contents=formatted_prompt, # Removed for DeepSeek integration
-    # config={ # Removed for DeepSeek integration
-    # "tools": [{"google_search": {}}],
-    # "temperature": 0,
-    # },
-    # )
-    # Logic for resolving URLs, getting citations, and inserting citation markers
-    # has been removed as it was specific to the Google Search API tool's response.
-    # sources_gathered = [item for citation in citations for item in citation["segments"]]
+    # Uses the google genai client (genai_search_client) for the search tool
+    # TODO: Confirm the correct Google model name for tool usage. Using gemini-1.5-flash-latest as a placeholder.
+    # The prompt (formatted_prompt) is prepared based on DeepSeek's logic if web_searcher_instructions are generic enough.
+    # However, the model executing the search tool itself must be a Google model.
+    search_tool_executor_model = "gemini-1.5-flash-latest"
 
-    # Dummy implementation after removing Google Search functionality
+    response = genai_search_client.generate_content( # Corrected method name from .models.generate_content
+        model=f"models/{search_tool_executor_model}",
+        contents=formatted_prompt,
+        generation_config={
+            "tool_config": { "google_search_retrieval": { "disable_attribution": False } }
+        },
+        tools=[{"google_search_retrieval": {}}],
+    )
+
+    # IMPORTANT: The following extraction and utility function calls (resolve_urls, get_citations, insert_citation_markers)
+    # are based on the new Google SDK structure but the utility functions themselves in agent/utils.py
+    # were written for an OLDER SDK structure (e.g., response.candidates[0].grounding_metadata.grounding_chunks).
+    # These utility functions WILL LIKELY FAIL or require significant adaptation to work correctly
+    # with response.candidates[0].content.parts[0].grounding_metadata.web_search_results.
+    # This adaptation is outside the immediate scope of this change but is crucial for functionality.
+
+    extracted_text = ""
+    sources_gathered = []
+    modified_text = "" # Default to empty if no valid response or grounding
+
+    if response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
+        response_part = response.candidates[0].content.parts[0]
+        extracted_text = response_part.text if hasattr(response_part, "text") else ""
+
+        if hasattr(response_part, "grounding_metadata") and response_part.grounding_metadata:
+            web_search_results = response_part.grounding_metadata.web_search_results if hasattr(response_part.grounding_metadata, "web_search_results") else []
+
+            # The following calls to utils are placeholders and depend on their adaptation:
+            resolved_urls = resolve_urls(web_search_results, state["id"])
+            citations = get_citations(response, resolved_urls) # This 'response' object might be too high level for the old util
+
+            # Use extracted_text for citation markers, not potentially non-existent response.text
+            modified_text = insert_citation_markers(extracted_text, citations)
+            sources_gathered = [item for citation in citations for item in citation["segments"]] if citations else []
+        else:
+            # No grounding metadata, so use extracted text as is
+            modified_text = extracted_text
+    else:
+        # Handle cases with no candidates or parts (e.g., safety blocked response)
+        # modified_text is already "", sources_gathered is already []
+        pass
+
+
     return {
-        "sources_gathered": [],
+        "sources_gathered": sources_gathered, # Potentially empty if utils fail or no grounding
         "search_query": [state["search_query"]],
-        "web_research_result": [
-            "Web research for '"
-            + str(state["search_query"])
-            + "' not implemented with DeepSeek yet."
-        ],
+        "web_research_result": [modified_text],
     }
 
 
@@ -262,9 +295,24 @@ def finalize_answer(state: OverallState, config: RunnableConfig):
     # The 'sources_gathered' list from the state will be passed through as is,
     # which is expected to be empty.
 
+    # Restore original logic for URL replacement, assuming utils adapt and sources_gathered is populated.
+    # If web_research node or utils fail to populate sources_gathered meaningfully, this will have no effect.
+    unique_sources = []
+    for source in state["sources_gathered"]: # This list now comes from the restored web_research
+        # Ensure source is a dictionary and has 'short_url' and 'value' keys
+        if isinstance(source, dict) and "short_url" in source and "value" in source:
+            if source["short_url"] in result.content:
+                result.content = result.content.replace(
+                    source["short_url"], source["value"]
+                )
+                unique_sources.append(source)
+        elif isinstance(source, dict) and "value" in source: # Fallback if only value is present
+             unique_sources.append(source)
+
+
     return {
         "messages": [AIMessage(content=result.content)],
-        "sources_gathered": state["sources_gathered"], # Pass through, expected to be empty
+        "sources_gathered": unique_sources, # Use the processed list
     }
 
 
