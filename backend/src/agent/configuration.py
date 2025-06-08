@@ -48,13 +48,25 @@ class Configuration(BaseModel):
             config["configurable"] if config and "configurable" in config else {}
         )
 
-        # Get raw values from environment or config
-        raw_values: dict[str, Any] = {
-            name: os.environ.get(name.upper(), configurable.get(name))
-            for name in cls.model_fields.keys()
-        }
+        # Create a dictionary with values found, letting Pydantic handle defaults for missing ones.
+        final_values = {}
+        for field_name in cls.model_fields.keys():
+            # Prioritize environment variables
+            env_value = os.environ.get(field_name.upper())
+            if env_value is not None:
+                final_values[field_name] = env_value
+                continue # Environment variable takes precedence
 
-        # Filter out None values
-        values = {k: v for k, v in raw_values.items() if v is not None}
+            # Then, check configurable, with special handling for reflection_model
+            config_value = None
+            if field_name == "reflection_model":
+                # If 'reasoning_model' is provided in configurable, use it for 'reflection_model'
+                config_value = configurable.get("reasoning_model", configurable.get(field_name))
+            else:
+                config_value = configurable.get(field_name)
 
-        return cls(**values)
+            if config_value is not None:
+                final_values[field_name] = config_value
+            # If neither env_var nor config_value is found, Pydantic will use the default field value
+
+        return cls(**final_values)
