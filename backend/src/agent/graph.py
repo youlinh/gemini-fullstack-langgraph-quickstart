@@ -8,7 +8,7 @@ from langgraph.graph import StateGraph
 from langgraph.graph import START, END
 from langchain_core.runnables import RunnableConfig
 # from google.genai import Client # Removed for DeepSeek integration
-from langchain_deepseek import ChatDeepseek # Assuming this is the correct import
+from langchain_deepseek import ChatDeepSeek # Corrected import name
 
 from agent.state import (
     OverallState,
@@ -62,7 +62,7 @@ def generate_query(state: OverallState, config: RunnableConfig) -> QueryGenerati
         state["initial_search_query_count"] = configurable.number_of_initial_queries
 
     # init DeepSeek Chat
-    llm = ChatDeepseek(
+    llm = ChatDeepSeek(
         model=configurable.query_generator_model,
         temperature=1.0,
         max_retries=2,
@@ -170,7 +170,7 @@ def reflection(state: OverallState, config: RunnableConfig) -> ReflectionState:
         summaries="\n\n---\n\n".join(state["web_research_result"]),
     )
     # init Reflection Model
-    llm = ChatDeepseek(
+    llm = ChatDeepSeek(
         model=reasoning_model, # Should be reflection_model from config
         temperature=1.0,
         max_retries=2,
@@ -249,7 +249,7 @@ def finalize_answer(state: OverallState, config: RunnableConfig):
     )
 
     # init Answer Model
-    llm = ChatDeepseek(
+    llm = ChatDeepSeek(
         model=answer_model, # Should be answer_model from config
         temperature=0,
         max_retries=2,
