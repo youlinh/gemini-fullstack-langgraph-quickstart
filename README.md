@@ -33,7 +33,7 @@ Follow these steps to get the application running locally for development and te
     -   `DEEPSEEK_API_KEY`: For DeepSeek model access.
     -   `GOOGLE_SEARCH_API_KEY`: For Google Search API access.
     1.  Navigate to the `backend/` directory.
-    2.  Create a file named `.env` by copying the `backend/.env.example` file. (Note: `.env.example` will need to be updated to include both API key placeholders if not already present).
+    2.  Create a file named `.env` by copying the `backend/.env.example` file. (Note: `.env.example` should include placeholders for both keys).
     3.  Open the `.env` file and add your API keys:
         `DEEPSEEK_API_KEY="YOUR_DEEPSEEK_API_KEY"`
         `GOOGLE_SEARCH_API_KEY="YOUR_GOOGLE_SEARCH_API_KEY"`

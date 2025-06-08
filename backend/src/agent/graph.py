@@ -7,8 +7,8 @@ from langgraph.types import Send
 from langgraph.graph import StateGraph
 from langgraph.graph import START, END
 from langchain_core.runnables import RunnableConfig
-from google.genai import Client # Restoring for Google Search
-from langchain_deepseek import ChatDeepSeek # Corrected import name
+from google.genai import Client # Restoring Google Search client
+from langchain_deepseek import ChatDeepSeek
 
 from agent.state import (
     OverallState,
@@ -37,11 +37,11 @@ load_dotenv()
 if os.getenv("DEEPSEEK_API_KEY") is None:
     raise ValueError("DEEPSEEK_API_KEY is not set")
 
-if os.getenv("GOOGLE_SEARCH_API_KEY") is None:
+if os.getenv("GOOGLE_SEARCH_API_KEY") is None: # Restoring Google Search API key check
     raise ValueError("GOOGLE_SEARCH_API_KEY is not set")
 
 # Used for Google Search API
-genai_search_client = Client(api_key=os.getenv("GOOGLE_SEARCH_API_KEY"))
+genai_search_client = Client(api_key=os.getenv("GOOGLE_SEARCH_API_KEY")) # Restoring Google Search client
 
 
 # Nodes

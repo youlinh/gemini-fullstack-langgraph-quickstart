@@ -27,8 +27,8 @@ def resolve_urls(urls_to_resolve: List[Any], id: int) -> Dict[str, str]:
 
     The input `urls_to_resolve` is expected to be a list of objects/dictionaries,
     each having a `web.uri` attribute (e.g., from web_search_results in grounding metadata).
-    # TODO: Verify the exact structure of `urls_to_resolve` (previously `grounding_chunks`)
-    # from the current Google API response when using `google_search_retrieval` tool.
+    # TODO: Verify the exact structure of `urls_to_resolve` (expected to be grounding_chunks or similar)
+    # from the current Google API response when using the 'google_search' tool.
     """
     prefix = f"https://vertexaisearch.cloud.google.com/id/" # Google-specific prefix
     # Assuming `site` objects in `urls_to_resolve` have `web.uri` or similar path to the URL.
@@ -89,13 +89,13 @@ def insert_citation_markers(text, citations_list):
 def get_citations(response, resolved_urls_map):
     """
     Extracts and formats citation information from a Google Search API response
-    (via google.genai.Client, specifically using `google_search_retrieval` tool).
+    (via google.genai.Client, specifically using the 'google_search' tool).
 
     This function processes grounding metadata from the response to construct a list of citation objects.
     Each citation object includes start/end indices of the text segment and formatted markdown links.
-    # TODO: Verify path to grounding_supports/grounding_chunks and their structure
-    # (e.g., `web.uri`, `web.title`, segment start/end indices) from the current Google API response
-    # when using `google_search_retrieval`. The structure below is based on an older SDK version or assumptions.
+    # TODO: Verify path to grounding_supports/grounding_chunks and their structure (web_uri, title)
+    # from current Google API response. The current logic iterates grounding_supports and then grounding_chunks,
+    # this needs to match the actual response from the 'google_search' tool.
 
     Args:
         response: The response object from `genai_search_client.generate_content()`,
