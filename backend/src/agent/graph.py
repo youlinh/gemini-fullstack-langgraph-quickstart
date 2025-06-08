@@ -7,7 +7,8 @@ from langgraph.types import Send
 from langgraph.graph import StateGraph
 from langgraph.graph import START, END
 from langchain_core.runnables import RunnableConfig
-import google.generativeai as genai # Updated import for google-generativeai
+import google.generativeai as genai
+from google.generativeai.types import Tool, FunctionDeclaration # Added for defining search tool
 from langchain_deepseek import ChatDeepSeek
 
 from agent.state import (
@@ -122,11 +123,35 @@ def web_research(state: WebSearchState, config: RunnableConfig) -> OverallState:
     # TODO: Confirm "gemini-1.5-flash-latest" is the most appropriate and available model for this client and tool.
     google_search_model = genai.GenerativeModel("models/gemini-1.5-flash-latest")
 
+    # Define the search tool using FunctionDeclaration
+    search_tool_declaration = FunctionDeclaration(
+        name="perform_web_search",
+        description="Performs a web search for the given query to find relevant information. The query should be the value from the 'research_topic' in the prompt.",
+        parameters={
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "The search query derived from the research topic."
+                }
+            },
+            "required": ["query"]
+        }
+    )
+
+    # Create a Tool object
+    # Note: The Google model itself will fulfill this function call using its native search,
+    # we don't provide an implementation for "perform_web_search".
+    # The LLM will be prompted to use this tool with the query from `state["search_query"]`.
+    # The `formatted_prompt` (which uses `web_searcher_instructions` and `state["search_query"]`)
+    # should guide the LLM to invoke `perform_web_search` with `state["search_query"]`.
+    current_tools = [Tool(function_declarations=[search_tool_declaration])]
+
     # Uses the google genai client's model to generate content (and trigger tools)
     response = google_search_model.generate_content(
-        contents=formatted_prompt, # This prompt might make the LLM use the tool
+        contents=formatted_prompt, # formatted_prompt contains the research_topic which is state["search_query"]
         generation_config={"response_mime_type": "text/plain"}, # Ensure this is appropriate
-        tools=[{"google_search": {"query": state["search_query"]}}], # Corrected tool name & providing query directly
+        tools=current_tools,
         # Consider if other parameters like temperature are needed here for the tool-calling model
     )
 
